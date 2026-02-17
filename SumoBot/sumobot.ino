@@ -70,6 +70,7 @@ void setup() {
   pinMode(R_MOTOR_PWM, OUTPUT);
   pinMode(L_MOTOR_PWM, OUTPUT);
   Serial.println("Setup Finished");
+  delay(1000);
 }
 
 void loop() {
@@ -82,6 +83,10 @@ void loop() {
   
   int distR = measurementCentimeters(measureLOXR.RangeMilliMeter);
   int distL = measurementCentimeters(measureLOXL.RangeMilliMeter);
+  
+  string debugDist = "L: " + to_string(distL) = " | R: " + to_string(distR);
+  Serial.println(debugDist);
+
   // Excape Conditions
   if (distR > DIST_DETECT_THRESHOLD || distL > DIST_DETECT_THRESHOLD){
     // where tf is ts bot
@@ -90,7 +95,7 @@ void loop() {
     motors(motorSpeed(0.2), motorSpeed(0.1));
   } else if (distR+2 > distL){
     motors(motorSpeed(0.1), motorSpeed(0.2));
-  } else {
+  } else if (abs(distL - distR) > 2) {
     motors(motorSpeed(0.3), motorSpeed(0.3));
   }
   delay(10);
@@ -126,7 +131,7 @@ void stopMotors() {
 }
 
 void search() {
-  motors(motorSpeed(SPIN_SPEED), motorSpeed(SPIN_SPEED));
+  motors(motorSpeed(SPIN_SPEED), -motorSpeed(SPIN_SPEED));
 }
 
 int motorSpeed(double percentage) {
