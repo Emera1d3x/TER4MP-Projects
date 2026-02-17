@@ -6,7 +6,7 @@
 
 // Imports
 #include <Wire.h>
-#include <Adafruit_VL53L0X.h>
+#include "lib/Adafruit_VL53L0X/Adafruit_VL53L0X.h"
 
 // Motors
   // Right Motor
@@ -89,7 +89,7 @@ void loop() {
   } else if (distR < distL+2){
     motors(motorSpeed(0.2), motorSpeed(0.1));
   } else if (distR+2 > distL){
-    motors(motorSpeed(0.1), motorSpeed(0.2)):
+    motors(motorSpeed(0.1), motorSpeed(0.2));
   } else {
     motors(motorSpeed(0.3), motorSpeed(0.3));
   }
