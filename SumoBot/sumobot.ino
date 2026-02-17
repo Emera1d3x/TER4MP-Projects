@@ -6,7 +6,7 @@
 
 // Imports
 #include <Wire.h>
-#include "lib/Adafruit_VL53L0X/Adafruit_VL53L0X.h"
+#include "lib/Adafruit_VL53L0X/src/Adafruit_VL53L0X.h"
 
 // Motors
   // Right Motor
