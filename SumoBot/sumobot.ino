@@ -18,21 +18,22 @@
 #define L_MOTOR_P1 9 // BIN1
 #define L_MOTOR_P2 10 // BIN2
 
-// Ground Sensors
-#define LDR_F A0
+// Ground Sensors (QRE1113 IR Sensor)
+#define LDR_A A0
 #define LDR_B A1
+#define LDR_C A2
 
 // Distance Sensors (VL53L0X Dual Sensor Setup)
   //
-Adafruit_VL53L0X loxR = Adafruit_VL53L0X();
-Adafruit_VL53L0X loxL = Adafruit_VL53L0X();
+Adafruit_VL53L0X distR = Adafruit_VL53L0X();
+Adafruit_VL53L0X distL = Adafruit_VL53L0X();
   // 
-#define LOXR_SHT 2
-#define LOXL_SHT 3
+#define DISTR_SHT 2
+#define DISTL_SHT 3
   //
-#define LOXR_ADDRESS 0x30
-#define LOXL_ADDRESS 0x31
-// Distance Sensor (The other one)
+#define DISTR_ADDRESS 0x30
+#define DISTL_ADDRESS 0x31
+  // Distance Sensor (The other one)
 
 // Additional Constants
 #define SPIN_SPEED 0.9 // Spin Speed Percentage
@@ -43,51 +44,67 @@ Adafruit_VL53L0X loxL = Adafruit_VL53L0X();
 // Weird method required for setting multiple VL52L0X
   // Start with both off, restart one sensor at one memory address, and restart the other at another memoory address via XSHUT pin
 void setVL52L0X() {
-  pinMode(LOXR_SHT, OUTPUT);
-  pinMode(LOXL_SHT, OUTPUT);
+  pinMode(DISTR_SHT, OUTPUT);
+  pinMode(DISTL_SHT, OUTPUT);
   // Off
-  digitalWrite(LOXR_SHT, LOW);
-  digitalWrite(LOXL_SHT, LOW);
+  digitalWrite(DISTR_SHT, LOW);
+  digitalWrite(DISTL_SHT, LOW);
   delay(10);
   // Restart R
-  digitalWrite(LOXR_SHT, HIGH);
+  digitalWrite(DISTR_SHT, HIGH);
   delay(10);
-  loxR.begin(LOXR_ADDRESS);
+  distR.begin(DISTR_ADDRESS);
   // Restart L
-  digitalWrite(LOXL_SHT, HIGH);
+  digitalWrite(DISTL_SHT, HIGH);
   delay(10);
-  loxL.begin(LOXL_ADDRESS);
+  distL.begin(DISTL_ADDRESS);
   Serial.println("VL52L0X Set");
 }
 
-void setup() {
-  Serial.begin(9600);
-  setVL52L0X();
+
+void setQRE(){
+
+}
+
+void setupMotors(){
   pinMode(R_MOTOR_P1, OUTPUT);
   pinMode(R_MOTOR_P2, OUTPUT);
   pinMode(L_MOTOR_P1, OUTPUT);
   pinMode(L_MOTOR_P2, OUTPUT);
   pinMode(R_MOTOR_PWM, OUTPUT);
   pinMode(L_MOTOR_PWM, OUTPUT);
+}
+
+void setup() {
+  Serial.begin(9600);
+  setVL52L0X();
+  setMotors();
+  setQRE();
   Serial.println("Setup Finished");
   delay(1000);
 }
 
 void loop() {
   // Read dual VL53L0X sensors
-  VL53L0X_RangingMeasurementData_t measureLOXR;
-  VL53L0X_RangingMeasurementData_t measureLOXL;
+  VL53L0X_RangingMeasurementData_t measureDISTR;
+  VL53L0X_RangingMeasurementData_t measureDISTL;
 
-  loxR.rangingTest(&measureLOXR, false);
-  loxL.rangingTest(&measureLOXL, false);
+  distR.rangingTest(&measureDISTR, false);
+  distL.rangingTest(&measureDISTL, false);
   
-  int distR = measurementCentimeters(measureLOXR.RangeMilliMeter);
-  int distL = measurementCentimeters(measureLOXL.RangeMilliMeter);
+  int distR = measurementCentimeters(measureDISTR.RangeMilliMeter);
+  int distL = measurementCentimeters(measureDISTL.RangeMilliMeter);
   
   string debugDist = "L: " + to_string(distL) = " | R: " + to_string(distR);
   Serial.println(debugDist);
 
-  // Excape Conditions
+  bool whiteA = (LDR_DETECT_THRESHOLD > analogRead(LDR_A));
+  bool whiteB = (LDR_DETECT_THRESHOLD > analogRead(LDR_B));
+  bool whiteC = (LDR_DETECT_THRESHOLD > analogRead(LDR_C));
+
+  // Escape Conditions (Urgent)
+    // idk where the placements are yet
+  // Non-Escape Conditions
   if (distR > DIST_DETECT_THRESHOLD || distL > DIST_DETECT_THRESHOLD){
     // where tf is ts bot
     search();
