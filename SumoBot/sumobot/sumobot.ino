@@ -26,8 +26,8 @@
 
 // Distance Sensors (VL53L0X Dual Sensor Setup)
   //
-Adafruit_VL53L0X distR = Adafruit_VL53L0X();
-Adafruit_VL53L0X distL = Adafruit_VL53L0X();
+Adafruit_VL53L0X distSensorR = Adafruit_VL53L0X();
+Adafruit_VL53L0X distSensorL = Adafruit_VL53L0X();
   // 
 #define DISTR_SHT 2
 #define DISTL_SHT 3
@@ -40,7 +40,8 @@ Adafruit_VL53L0X distL = Adafruit_VL53L0X();
 
 // Additional Constants
 #define SPIN_SPEED 1 // Spin Speed Percentage
-#define DIST_DETECT_THRESHOLD 850 // 
+#define DIST_DETECT_THRESHOLD 50 // 
+#define DIST_DETECT_THRESHOLD_MIDDLE 50 // 
 #define LDR_DETECT_THRESHOLD 250 // 
 
 void setDistSensors(){
@@ -59,21 +60,23 @@ void setVL52L0X() {
   // Restart R
   digitalWrite(DISTR_SHT, HIGH);
   delay(10);
-  distR.begin(DISTR_ADDRESS);
+  distSensorR.begin(DISTR_ADDRESS);
   // Restart L
   digitalWrite(DISTL_SHT, HIGH);
   delay(10);
-  distL.begin(DISTL_ADDRESS);
+  distSensorL.begin(DISTL_ADDRESS);
   Serial.println("VL52L0X Set");
 }
 
 void setUltraSonic(){
   pinMode(ULTRA_TRIG, OUTPUT);
-  pinMode(ULTRA_ECHO, OUTPUT);
+  pinMode(ULTRA_ECHO, INPUT);
 }
 
 void setQRE(){
-
+  pinMode(LDR_R, INPUT);
+  pinMode(LDR_L, INPUT);
+  pinMode(LDR_B, INPUT);
 }
 
 void setMotors(){
@@ -99,49 +102,50 @@ void loop() {
   VL53L0X_RangingMeasurementData_t measureDISTR;
   VL53L0X_RangingMeasurementData_t measureDISTL;
 
-  distR.rangingTest(&measureDISTR, false);
-  distL.rangingTest(&measureDISTL, false);
+  distSensorR.rangingTest(&measureDISTR, false);
+  distSensorL.rangingTest(&measureDISTL, false);
   
   double distR = measurementCentimeters(measureDISTR.RangeMilliMeter);
   double distL = measurementCentimeters(measureDISTL.RangeMilliMeter);
   double distM = measureUltraSonic();
-  /*Serial.print("L: ");
+  
+  Serial.print("L: ");
   Serial.print(distL);
   Serial.print(" | M: ");
   Serial.print(distM);
   Serial.print(" | R: ");
-  Serial.println(distR);*/
+  Serial.print(distR);
   //string debugDist = "L: " + to_string(distL) = " | M: " + to_string(distM) + " | R: " + to_string(distR);
   //Serial.println(debugDist);
 
   double whiteR = analogRead(LDR_R);
   double whiteL = analogRead(LDR_L);
-  double whiteB =  analogRead(LDR_B);
+  double whiteB = analogRead(LDR_B);
   /*bool whiteR = (LDR_DETECT_THRESHOLD > analogRead(LDR_R));
   bool whiteL = (LDR_DETECT_THRESHOLD > analogRead(LDR_L));
   bool whiteB = (LDR_DETECT_THRESHOLD > analogRead(LDR_B));*/
-  Serial.print("L: ");
-  Serial.print(whiteL);
-  Serial.print(" | B: ");
-  Serial.print(whiteB);
-  Serial.print(" | R: ");
-  Serial.println(whiteR);
+  //Serial.print("L: ");
+  //Serial.print(whiteL);
+  //Serial.print(" | B: ");
+  //Serial.print(whiteB);
+  //Serial.print(" | R: ");
+  //Serial.println(whiteR);
+  //Serial.println();
 
-  /*
+  
   // Escape Conditions (Urgent)
     // idk where the placements are yet
   // Non-Escape Conditions
-  if (distR > DIST_DETECT_THRESHOLD || distL > DIST_DETECT_THRESHOLD){
+  if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){
     // where tf is ts bot
-    search();
-  } else if (distR < distL+2){
-    motors(motorSpeed(0.2), motorSpeed(0.1));
-  } else if (distR+2 > distL){
-    motors(motorSpeed(0.1), motorSpeed(0.2));
-  } else if (abs(distL - distR) > 2) {
-    motors(motorSpeed(0.3), motorSpeed(0.3));
+    search(); Serial.println("  SEARCHING");
+  } else if (distR+5 < distL && distM < 70){
+    motors(motorSpeed(0), motorSpeed(1)); Serial.println("  LEFT");
+  } else if (distR > distL+5 && distM < 70){
+    motors(motorSpeed(1), motorSpeed(0)); Serial.println("  RIGHT");
+  } else {
+    motors(motorSpeed(0.5), motorSpeed(0.5)); Serial.println("  FWD");
   }
-  */
   delay(10);
 }
 
@@ -149,9 +153,9 @@ double measureUltraSonic(){
   digitalWrite(ULTRA_TRIG, LOW);
   delayMicroseconds(2);
   digitalWrite(ULTRA_TRIG, HIGH);
-  delayMicroseconds(1);
+  delayMicroseconds(10);
   digitalWrite(ULTRA_TRIG, LOW);
-  double duration = pulseIn(ULTRA_ECHO, HIGH);
+  double duration = pulseIn(ULTRA_ECHO, HIGH, 30000);
   double distance = duration*0.034/2;
   return distance;
 }
