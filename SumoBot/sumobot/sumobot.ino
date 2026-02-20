@@ -6,7 +6,8 @@
 
 // Imports
 #include <Wire.h>
-#include "lib/Adafruit_VL53L0X/src/Adafruit_VL53L0X.h"
+//#include "lib/Adafruit_VL53L0X/src/Adafruit_VL53L0X.h"
+#include <Adafruit_VL53L0X.h>
 
 // Motors
   // Right Motor
@@ -19,9 +20,9 @@
 #define L_MOTOR_P2 10 // BIN2
 
 // Ground Sensors (QRE1113 IR Sensor)
-#define LDR_A A0
-#define LDR_B A1
-#define LDR_C A2
+#define LDR_R A0
+#define LDR_L A1
+#define LDR_B A2
 
 // Distance Sensors (VL53L0X Dual Sensor Setup)
   //
@@ -34,13 +35,18 @@ Adafruit_VL53L0X distL = Adafruit_VL53L0X();
 #define DISTR_ADDRESS 0x30
 #define DISTL_ADDRESS 0x31
   // Distance Sensor (The other one)
+#define ULTRA_TRIG 11
+#define ULTRA_ECHO 12
 
 // Additional Constants
-#define SPIN_SPEED 0.9 // Spin Speed Percentage
+#define SPIN_SPEED 1 // Spin Speed Percentage
 #define DIST_DETECT_THRESHOLD 850 // 
 #define LDR_DETECT_THRESHOLD 250 // 
 
-
+void setDistSensors(){
+  setVL52L0X();
+  setUltraSonic();
+}
 // Weird method required for setting multiple VL52L0X
   // Start with both off, restart one sensor at one memory address, and restart the other at another memoory address via XSHUT pin
 void setVL52L0X() {
@@ -61,12 +67,16 @@ void setVL52L0X() {
   Serial.println("VL52L0X Set");
 }
 
+void setUltraSonic(){
+  pinMode(ULTRA_TRIG, OUTPUT);
+  pinMode(ULTRA_ECHO, OUTPUT);
+}
 
 void setQRE(){
 
 }
 
-void setupMotors(){
+void setMotors(){
   pinMode(R_MOTOR_P1, OUTPUT);
   pinMode(R_MOTOR_P2, OUTPUT);
   pinMode(L_MOTOR_P1, OUTPUT);
@@ -77,7 +87,7 @@ void setupMotors(){
 
 void setup() {
   Serial.begin(9600);
-  setVL52L0X();
+  setDistSensors();
   setMotors();
   setQRE();
   Serial.println("Setup Finished");
@@ -92,16 +102,32 @@ void loop() {
   distR.rangingTest(&measureDISTR, false);
   distL.rangingTest(&measureDISTL, false);
   
-  int distR = measurementCentimeters(measureDISTR.RangeMilliMeter);
-  int distL = measurementCentimeters(measureDISTL.RangeMilliMeter);
-  
-  string debugDist = "L: " + to_string(distL) = " | R: " + to_string(distR);
-  Serial.println(debugDist);
+  double distR = measurementCentimeters(measureDISTR.RangeMilliMeter);
+  double distL = measurementCentimeters(measureDISTL.RangeMilliMeter);
+  double distM = measureUltraSonic();
+  /*Serial.print("L: ");
+  Serial.print(distL);
+  Serial.print(" | M: ");
+  Serial.print(distM);
+  Serial.print(" | R: ");
+  Serial.println(distR);*/
+  //string debugDist = "L: " + to_string(distL) = " | M: " + to_string(distM) + " | R: " + to_string(distR);
+  //Serial.println(debugDist);
 
-  bool whiteA = (LDR_DETECT_THRESHOLD > analogRead(LDR_A));
-  bool whiteB = (LDR_DETECT_THRESHOLD > analogRead(LDR_B));
-  bool whiteC = (LDR_DETECT_THRESHOLD > analogRead(LDR_C));
+  double whiteR = analogRead(LDR_R);
+  double whiteL = analogRead(LDR_L);
+  double whiteB =  analogRead(LDR_B);
+  /*bool whiteR = (LDR_DETECT_THRESHOLD > analogRead(LDR_R));
+  bool whiteL = (LDR_DETECT_THRESHOLD > analogRead(LDR_L));
+  bool whiteB = (LDR_DETECT_THRESHOLD > analogRead(LDR_B));*/
+  Serial.print("L: ");
+  Serial.print(whiteL);
+  Serial.print(" | B: ");
+  Serial.print(whiteB);
+  Serial.print(" | R: ");
+  Serial.println(whiteR);
 
+  /*
   // Escape Conditions (Urgent)
     // idk where the placements are yet
   // Non-Escape Conditions
@@ -115,7 +141,19 @@ void loop() {
   } else if (abs(distL - distR) > 2) {
     motors(motorSpeed(0.3), motorSpeed(0.3));
   }
+  */
   delay(10);
+}
+
+double measureUltraSonic(){
+  digitalWrite(ULTRA_TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(ULTRA_TRIG, HIGH);
+  delayMicroseconds(1);
+  digitalWrite(ULTRA_TRIG, LOW);
+  double duration = pulseIn(ULTRA_ECHO, HIGH);
+  double distance = duration*0.034/2;
+  return distance;
 }
 
 void motors(int right_speed, int left_speed) {
