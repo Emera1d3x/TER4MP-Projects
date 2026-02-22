@@ -116,19 +116,19 @@ void loop() {
   //string debugDist = "L: " + to_string(distL) = " | M: " + to_string(distM) + " | R: " + to_string(distR);
   //Serial.println(debugDist);
 
-  double whiteF = analogRead(LDR_F);
-  double whiteB = analogRead(LDR_B);
-  //bool whiteF = (LDR_DETECT_THRESHOLD > analogRead(LDR_R));
-  //bool whiteB = (LDR_DETECT_THRESHOLD > analogRead(LDR_B));
+  double whiteValF = analogRead(LDR_F);
+  double whiteValB = analogRead(LDR_B);
+  bool whiteF = (LDR_DETECT_THRESHOLD > whiteValF);
+  bool whiteB = (LDR_DETECT_THRESHOLD > whiteValB);
   /*Serial.print("F: ");
-  Serial.print(whiteF);
+  Serial.print(whiteValF);
   Serial.print(" | B: ");
-  Serial.print(whiteB);*/
+  Serial.print(whiteValB);*/
   
-  // Escape Conditions (Urgent)
-    // idk where the placements are yet
-  // Non-Escape Conditions
-  if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){
+  if (whiteF || whiteB){
+    // urgent escape
+    escape(whiteF, whiteB); 
+  } else if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){
     // where tf is ts bot
     search(); Serial.println("  SEARCHING");
   } else if (distR+5 < distL && distM < 70){
@@ -183,6 +183,10 @@ void stopMotors() {
 
 void search() {
   motors(motorSpeed(SPIN_SPEED), -motorSpeed(SPIN_SPEED));
+}
+
+void escape(bool front, bool back) {
+  (front) ? motors(1, 1) : motors(-1, -1) ;
 }
 
 int motorSpeed(double percentage) {
