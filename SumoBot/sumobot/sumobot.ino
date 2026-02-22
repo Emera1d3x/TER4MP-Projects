@@ -186,7 +186,7 @@ void search() {
 }
 
 void escape(bool front, bool back) {
-  (front) ? motors(1, 1) : motors(-1, -1) ;
+  (front) ? motors(-1, -1) : motors(1, 1) ;
 }
 
 int motorSpeed(double percentage) {
