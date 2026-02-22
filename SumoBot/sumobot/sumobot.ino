@@ -20,9 +20,8 @@
 #define L_MOTOR_P2 10 // BIN2
 
 // Ground Sensors (QRE1113 IR Sensor)
-#define LDR_R A0
-#define LDR_L A1
-#define LDR_B A2
+#define LDR_F A0
+#define LDR_B A1
 
 // Distance Sensors (VL53L0X Dual Sensor Setup)
   //
@@ -74,8 +73,7 @@ void setUltraSonic(){
 }
 
 void setQRE(){
-  pinMode(LDR_R, INPUT);
-  pinMode(LDR_L, INPUT);
+  pinMode(LDR_F, INPUT);
   pinMode(LDR_B, INPUT);
 }
 
@@ -118,20 +116,14 @@ void loop() {
   //string debugDist = "L: " + to_string(distL) = " | M: " + to_string(distM) + " | R: " + to_string(distR);
   //Serial.println(debugDist);
 
-  double whiteR = analogRead(LDR_R);
-  double whiteL = analogRead(LDR_L);
+  double whiteF = analogRead(LDR_F);
   double whiteB = analogRead(LDR_B);
-  /*bool whiteR = (LDR_DETECT_THRESHOLD > analogRead(LDR_R));
-  bool whiteL = (LDR_DETECT_THRESHOLD > analogRead(LDR_L));
-  bool whiteB = (LDR_DETECT_THRESHOLD > analogRead(LDR_B));*/
-  //Serial.print("L: ");
-  //Serial.print(whiteL);
-  //Serial.print(" | B: ");
-  //Serial.print(whiteB);
-  //Serial.print(" | R: ");
-  //Serial.println(whiteR);
-  //Serial.println();
-
+  //bool whiteF = (LDR_DETECT_THRESHOLD > analogRead(LDR_R));
+  //bool whiteB = (LDR_DETECT_THRESHOLD > analogRead(LDR_B));
+  /*Serial.print("F: ");
+  Serial.print(whiteF);
+  Serial.print(" | B: ");
+  Serial.print(whiteB);*/
   
   // Escape Conditions (Urgent)
     // idk where the placements are yet
