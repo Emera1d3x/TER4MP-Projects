@@ -21,8 +21,8 @@
 #define L_MOTOR_P2 10 // BIN2
 
 // Ground Sensors (QRE1113 IR Sensor)
-#define LDR_F A0
-#define LDR_B A1
+#define LDR_R A0
+#define LDR_L A1
 
 // Distance Sensors (VL53L0X Dual Sensor & Ultrasonic Sensor)
   // Dist Sensor Objects
@@ -82,8 +82,8 @@ void setUltraSonic(){
 // Setup (LDR) QRE
   // Actually not necessary
 void setQRE(){
-  pinMode(LDR_F, INPUT);
-  pinMode(LDR_B, INPUT);
+  pinMode(LDR_R, INPUT);
+  pinMode(LDR_L, INPUT);
 }
 
 // Setup Motors
@@ -121,24 +121,28 @@ void loop() {
   double distL = measurementCentimeters(measureDISTL.RangeMilliMeter);
   double distM = measureUltraSonic();
   // Debug for Dist
-  char debugStringDist[100];
-  snprintf(debugStringDist, sizeof(debugStringDist), "L: %.2f | M: %.2f | R: %.2f ", distL, distM, distR);
-  Serial.print(debugStringDist);
+  /*Serial.print("L: ");
+  Serial.print(distL);
+  Serial.print(" | M: ");
+  Serial.print(distM);
+  Serial.print(" | R: ");
+  Serial.print(distR);*/
 
   // Read QRE sensors 
-  double whiteValF = analogRead(LDR_F);
-  double whiteValB = analogRead(LDR_B);
+  double whiteValR = analogRead(LDR_R);
+  double whiteValL = analogRead(LDR_L);
   // Translate to detecting tape or not.
-  bool whiteF = (LDR_DETECT_THRESHOLD > whiteValF);
-  bool whiteB = (LDR_DETECT_THRESHOLD > whiteValB);
+  bool whiteR = (LDR_DETECT_THRESHOLD > whiteValR);
+  bool whiteL = (LDR_DETECT_THRESHOLD > whiteValL);
   // Debug for LDR
-  /*char debugStringLDR[100];
-  snprintf(debugStringLDR, sizeof(debugStringLDR), "F: %.2f | B: %.2f ", whiteValF, whiteValB);
-  Serial.print(debugStringLDR);*/
+  Serial.print("L: ");
+  Serial.print(whiteValL);
+  Serial.print(" | R: ");
+  Serial.print(whiteValR);
 
   // Control
-  if (whiteF || whiteB) { // urgent escape
-    escape(whiteF, whiteB); 
+  if (whiteR || whiteL) { // urgent escape
+    escape(whiteR, whiteL); Serial.println("  SEARCHING");
   } else if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){ // no clue where opponent is
     search(); Serial.println("  SEARCHING");
   } else if (distR+5 < distL && distM < 70){ // opponent to left
@@ -203,8 +207,8 @@ void search() {
 
 // Urgent on tape
   // Move away from the tape
-void escape(bool front, bool back) {
-  (front) ? motors(-1, -1) : motors(1, 1) ;
+void escape(bool right, bool left) {
+  motors(-1, -1);
 }
 
 // Translates percentage to PWM val
