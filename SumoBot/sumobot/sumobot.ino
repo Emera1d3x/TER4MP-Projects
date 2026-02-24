@@ -40,9 +40,9 @@ Adafruit_VL53L0X distSensorL = Adafruit_VL53L0X();
 
 // Additional Constants
 #define SPIN_SPEED 1 // Spin Speed Percentage
-#define DIST_DETECT_THRESHOLD 50 // 
-#define DIST_DETECT_THRESHOLD_MIDDLE 50 // 
-#define LDR_DETECT_THRESHOLD 250 // 
+#define DIST_DETECT_THRESHOLD 800 // 
+#define DIST_DETECT_THRESHOLD_MIDDLE 60 // 
+#define LDR_DETECT_THRESHOLD 110 // 
 
 // Setup Dist Sensors
 void setDistSensors(){
@@ -121,12 +121,12 @@ void loop() {
   double distL = measurementCentimeters(measureDISTL.RangeMilliMeter);
   double distM = measureUltraSonic();
   // Debug for Dist
-  /*Serial.print("L: ");
+  Serial.print("L: ");
   Serial.print(distL);
   Serial.print(" | M: ");
   Serial.print(distM);
   Serial.print(" | R: ");
-  Serial.print(distR);*/
+  Serial.print(distR);
 
   // Read QRE sensors 
   double whiteValR = analogRead(LDR_R);
@@ -135,22 +135,22 @@ void loop() {
   bool whiteR = (LDR_DETECT_THRESHOLD > whiteValR);
   bool whiteL = (LDR_DETECT_THRESHOLD > whiteValL);
   // Debug for LDR
-  Serial.print("L: ");
+  /*Serial.print("L: ");
   Serial.print(whiteValL);
   Serial.print(" | R: ");
-  Serial.print(whiteValR);
+  Serial.print(whiteValR);*/
 
   // Control
-  if (whiteR || whiteL) { // urgent escape
-    escape(whiteR, whiteL); Serial.println("  SEARCHING");
+  if ((whiteR || whiteL) && false) { // urgent escape
+    escape(whiteR, whiteL); Serial.println("  ESCAPING");
   } else if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){ // no clue where opponent is
     search(); Serial.println("  SEARCHING");
   } else if (distR+5 < distL && distM < 70){ // opponent to left
-    motors(motorSpeed(0), motorSpeed(1)); Serial.println("  LEFT");
+    motors(motorSpeed(-0.5), motorSpeed(1)); Serial.println("  LEFT");
   } else if (distR > distL+5 && distM < 70){ // opponent to right
-    motors(motorSpeed(1), motorSpeed(0)); Serial.println("  RIGHT");
+    motors(motorSpeed(1), motorSpeed(-0.5)); Serial.println("  RIGHT");
   } else { // opponent in front
-    motors(motorSpeed(0.5), motorSpeed(0.5)); Serial.println("  FWD");
+    motors(motorSpeed(1), motorSpeed(1)); Serial.println("  FWD");
   }
   delay(10);
 }
@@ -202,13 +202,13 @@ void stopMotors() {
 // Search for opponent bot
   // Search in a circle
 void search() {
-  motors(motorSpeed(SPIN_SPEED), -motorSpeed(SPIN_SPEED));
+  motors(-motorSpeed(SPIN_SPEED), motorSpeed(SPIN_SPEED));
 }
 
 // Urgent on tape
   // Move away from the tape
 void escape(bool right, bool left) {
-  motors(-1, -1);
+  motors(motorSpeed(-1), motorSpeed(-1));
 }
 
 // Translates percentage to PWM val
