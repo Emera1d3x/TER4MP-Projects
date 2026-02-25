@@ -40,8 +40,8 @@ Adafruit_VL53L0X distSensorL = Adafruit_VL53L0X();
 
 // Additional Constants
 #define SPIN_SPEED 1 // Spin Speed Percentage
-#define DIST_DETECT_THRESHOLD 800 // 
-#define DIST_DETECT_THRESHOLD_MIDDLE 60 // 
+#define DIST_DETECT_THRESHOLD 60 // 
+#define DIST_DETECT_THRESHOLD_MIDDLE 50 // 
 #define LDR_DETECT_THRESHOLD 110 // 
 
 // Setup Dist Sensors
@@ -135,19 +135,19 @@ void loop() {
   bool whiteR = (LDR_DETECT_THRESHOLD > whiteValR);
   bool whiteL = (LDR_DETECT_THRESHOLD > whiteValL);
   // Debug for LDR
-  /*Serial.print("L: ");
+  Serial.print("  L: ");
   Serial.print(whiteValL);
   Serial.print(" | R: ");
-  Serial.print(whiteValR);*/
+  Serial.print(whiteValR);
 
   // Control
-  if ((whiteR || whiteL) && false) { // urgent escape
+  if ((whiteR || whiteL) && true) { // urgent escape
     escape(whiteR, whiteL); Serial.println("  ESCAPING");
   } else if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){ // no clue where opponent is
     search(); Serial.println("  SEARCHING");
-  } else if (distR+5 < distL && distM < 70){ // opponent to left
+  } else if (distR+12 < distL){ // opponent to left
     motors(motorSpeed(-0.5), motorSpeed(1)); Serial.println("  LEFT");
-  } else if (distR > distL+5 && distM < 70){ // opponent to right
+  } else if (distR > distL+12){ // opponent to right
     motors(motorSpeed(1), motorSpeed(-0.5)); Serial.println("  RIGHT");
   } else { // opponent in front
     motors(motorSpeed(1), motorSpeed(1)); Serial.println("  FWD");
@@ -202,7 +202,7 @@ void stopMotors() {
 // Search for opponent bot
   // Search in a circle
 void search() {
-  motors(-motorSpeed(SPIN_SPEED), motorSpeed(SPIN_SPEED));
+  motors(motorSpeed(-SPIN_SPEED), motorSpeed(SPIN_SPEED));
 }
 
 // Urgent on tape
