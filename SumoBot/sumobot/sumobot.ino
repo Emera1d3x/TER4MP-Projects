@@ -6,7 +6,7 @@
 
 // Imports
 #include <Wire.h>
-#include <string.h> // For debug
+#include <time.h>
 //#include "lib/Adafruit_VL53L0X/src/Adafruit_VL53L0X.h"
 #include <Adafruit_VL53L0X.h>
 
@@ -40,9 +40,14 @@ Adafruit_VL53L0X distSensorL = Adafruit_VL53L0X();
 
 // Additional Constants
 #define SPIN_SPEED 1 // Spin Speed Percentage
-#define DIST_DETECT_THRESHOLD 60 // 
-#define DIST_DETECT_THRESHOLD_MIDDLE 50 // 
+#define DIST_DETECT_THRESHOLD 18 // 
+#define DIST_DETECT_THRESHOLD_MIDDLE 15 // 
 #define LDR_DETECT_THRESHOLD 110 // 
+
+// Search 
+bool spinMode = false;
+bool triangleMode = false;
+unsigned long spinStartTime = 0;
 
 // Setup Dist Sensors
 void setDistSensors(){
@@ -105,11 +110,13 @@ void setup() {
   setMotors();
   setQRE();
   Serial.println("Setup Finished");
-  delay(1000);
+  delay(1);
+  motors(motorSpeed(1), motorSpeed(1));
+  delay(500);
 }
 
 // Loop
-  // Constantly called around 16 MHz but slowed due delays used
+  // Constantly called around 16 MHz but slowed due to delays used
 void loop() {
   // Read VL53L0X sensors for current information
   VL53L0X_RangingMeasurementData_t measureDISTR;
@@ -120,13 +127,6 @@ void loop() {
   double distR = measurementCentimeters(measureDISTR.RangeMilliMeter);
   double distL = measurementCentimeters(measureDISTL.RangeMilliMeter);
   double distM = measureUltraSonic();
-  // Debug for Dist
-  Serial.print("L: ");
-  Serial.print(distL);
-  Serial.print(" | M: ");
-  Serial.print(distM);
-  Serial.print(" | R: ");
-  Serial.print(distR);
 
   // Read QRE sensors 
   double whiteValR = analogRead(LDR_R);
@@ -134,29 +134,32 @@ void loop() {
   // Translate to detecting tape or not.
   bool whiteR = (LDR_DETECT_THRESHOLD > whiteValR);
   bool whiteL = (LDR_DETECT_THRESHOLD > whiteValL);
-  // Debug for LDR
-  Serial.print("  L: ");
-  Serial.print(whiteValL);
-  Serial.print(" | R: ");
-  Serial.print(whiteValR);
+
+  debugger(distL, distM, distR, whiteValL, whiteValR);
 
   // Control
-  if ((whiteR || whiteL) && true) { // urgent escape
-    escape(whiteR, whiteL); Serial.println("  ESCAPING");
+  if ((whiteR || whiteL) && !triangleMode) { // urgent escape
+    escape(whiteR, whiteL);Serial.println("  ESCAPING");
   } else if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){ // no clue where opponent is
-    search(); Serial.println("  SEARCHING");
-  } else if (distR+12 < distL){ // opponent to left
-    motors(motorSpeed(-0.5), motorSpeed(1)); Serial.println("  LEFT");
-  } else if (distR > distL+12){ // opponent to right
-    motors(motorSpeed(1), motorSpeed(-0.5)); Serial.println("  RIGHT");
-  } else { // opponent in front
-    motors(motorSpeed(1), motorSpeed(1)); Serial.println("  FWD");
+    if (!triangleMode) {
+      spinSearch(); Serial.println("SPIN SEARCH");
+    } else {
+      triangleSearch((whiteL || whiteR)); Serial.println("Triangle Search");
+    }
+  } else {
+    spinMode = 0; triangleMode = 0;
+    if (distR+12 < distL) { // opponent to left
+      motors(motorSpeed(0.5), motorSpeed(1)); Serial.println("  LEFT");
+    } else if (distR > distL+12) { // opponent to right
+      motors(motorSpeed(1), motorSpeed(0.5)); Serial.println("  RIGHT");
+    } else { // opponent in front
+      motors(motorSpeed(1), motorSpeed(1)); Serial.println("  FWD");
+    }
   }
-  delay(10);
 }
 
 // Measure Ultrasonic sensor (Middle)
-  // Send out wave and if and when it comes back
+  // Send out wave and get when it comes back or not
 double measureUltraSonic(){
   digitalWrite(ULTRA_TRIG, LOW);
   delayMicroseconds(2);
@@ -199,10 +202,54 @@ void stopMotors() {
   motors(0, 0);
 }
 
-// Search for opponent bot
-  // Search in a circle
-void search() {
+// Spin Search for opponent bot
+  // Spin in a circle
+void spinSearch() {
+  if (!spinMode) {
+    spinMode = true;
+    spinStartTime = millis();
+  } else if (millis() - spinStartTime > 3000) { // span for too long
+    spinMode = false;
+    triangleMode = true;
+  }
   motors(motorSpeed(-SPIN_SPEED), motorSpeed(SPIN_SPEED));
+}
+
+// Triangle Search for opponent bot
+  // Move fwd until reach a vertex, then rotate ~60 degrees then go to next vertex, repeat
+void triangleSearch(bool vertex) {
+  // 0 = forward
+  // 1 = reverse from edge
+  // 2 = rotate to next side
+  static int state = 0;
+  static unsigned long stateStart = 0;
+
+  const unsigned long reverseTime = 500;   // back off from edge
+  const unsigned long rotateTime  = 1080;   // tune for ~60 degrees
+
+  unsigned long now = millis();
+
+  if (state == 0) {  
+    // Move forward until we hit edge
+    motors(motorSpeed(0.7), motorSpeed(0.7));
+    if (vertex) {                 // edge detected
+      state = 1;
+      stateStart = now;
+    }
+  } else if (state == 1) {  
+    // Reverse slightly
+    motors(motorSpeed(-0.7), motorSpeed(-0.7));
+    if (now - stateStart >= reverseTime) {
+      state = 2;
+      stateStart = now;
+    }
+  } else if (state == 2) {  
+    // Rotate in place (~60°)
+    motors(motorSpeed(-0.7), motorSpeed(0.7));
+    if (now - stateStart >= rotateTime) {
+      state = 0;
+    }
+  }
 }
 
 // Urgent on tape
@@ -219,4 +266,18 @@ int motorSpeed(double percentage) {
 // Convert MM to CM
 double measurementCentimeters(int millimeter){
   return (millimeter)/10;
+}
+
+// Debugger String
+void debugger(double distL, double distM, double distR, double whiteValL, double whiteValR){
+  Serial.print("L: ");
+  Serial.print(distL);
+  Serial.print(" | M: ");
+  Serial.print(distM);
+  Serial.print(" | R: ");
+  Serial.print(distR);
+  Serial.print("||  L: ");
+  Serial.print(whiteValL);
+  Serial.print(" | R: ");
+  Serial.print(whiteValR);
 }
