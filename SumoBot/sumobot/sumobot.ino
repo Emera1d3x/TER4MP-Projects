@@ -46,7 +46,7 @@ Adafruit_VL53L0X distSensorL = Adafruit_VL53L0X();
 
 // Search 
 bool spinMode = false;
-bool triangleMode = false;
+bool vertexMode = false;
 unsigned long spinStartTime = 0;
 
 // Setup Dist Sensors
@@ -138,16 +138,16 @@ void loop() {
   debugger(distL, distM, distR, whiteValL, whiteValR);
 
   // Control
-  if ((whiteR || whiteL) && !triangleMode) { // urgent escape
+  if ((whiteR || whiteL) && !vertexMode) { // Detects edge, urgent escape
     escape(whiteR, whiteL);Serial.println("  ESCAPING");
-  } else if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){ // no clue where opponent is
-    if (!triangleMode) {
+  } else if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){ // Can't find opponent 
+    if (!vertexMode) { // Spin Search
       spinSearch(); Serial.println("SPIN SEARCH");
-    } else {
-      triangleSearch((whiteL || whiteR)); Serial.println("Triangle Search");
+    } else { // Vertex Search
+      vertexSearch((whiteL || whiteR)); Serial.println("Vertex Search");
     }
-  } else {
-    spinMode = 0; triangleMode = 0;
+  } else { // Found opponent
+    spinMode = 0; vertexMode = 0;
     if (distR+12 < distL) { // opponent to left
       motors(motorSpeed(0.5), motorSpeed(1)); Serial.println("  LEFT");
     } else if (distR > distL+12) { // opponent to right
@@ -210,29 +210,27 @@ void spinSearch() {
     spinStartTime = millis();
   } else if (millis() - spinStartTime > 3000) { // span for too long
     spinMode = false;
-    triangleMode = true;
+    vertexMode = true;
   }
   motors(motorSpeed(-SPIN_SPEED), motorSpeed(SPIN_SPEED));
 }
 
-// Triangle Search for opponent bot
-  // Move fwd until reach a vertex, then rotate ~60 degrees then go to next vertex, repeat
-void triangleSearch(bool vertex) {
+// Vertex Search for opponent bot
+  // Move fwd until reach a vertex, then rotate some degrees then go to next vertex, repeat
+void vertexSearch(bool vertex) {
   // 0 = forward
   // 1 = reverse from edge
-  // 2 = rotate to next side
+  // 2 = rotate to point to next side
   static int state = 0;
   static unsigned long stateStart = 0;
-
-  const unsigned long reverseTime = 500;   // back off from edge
-  const unsigned long rotateTime  = 1080;   // tune for ~60 degrees
-
+  const unsigned long reverseTime = 500; // back off from edge
+  const unsigned long rotateTime  = 1080; // rotation angle in terms of time
   unsigned long now = millis();
 
   if (state == 0) {  
     // Move forward until we hit edge
     motors(motorSpeed(0.7), motorSpeed(0.7));
-    if (vertex) {                 // edge detected
+    if (vertex) { // edge detected
       state = 1;
       stateStart = now;
     }
@@ -244,7 +242,7 @@ void triangleSearch(bool vertex) {
       stateStart = now;
     }
   } else if (state == 2) {  
-    // Rotate in place (~60°)
+    // Rotate in place
     motors(motorSpeed(-0.7), motorSpeed(0.7));
     if (now - stateStart >= rotateTime) {
       state = 0;
@@ -252,7 +250,7 @@ void triangleSearch(bool vertex) {
   }
 }
 
-// Urgent on tape
+// Urgent, on tape
   // Move away from the tape
 void escape(bool right, bool left) {
   motors(motorSpeed(-1), motorSpeed(-1));
