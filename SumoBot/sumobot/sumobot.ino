@@ -185,20 +185,20 @@ double measureUltraSonic(){
 // Normalizer
 double pastDistVals[3][5] = {{0.0, 0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 0.0}};
   // Sometimes the dist sensors give faulty values. In order to mitigate the sudden change, normalize values to past ~10 milliseconds (?)
-void updateNormalizer (double distR, distM, distL) {
+void updateNormalizer (double distR, double distM, double distL) {
   // shift old vals
   for (int i = 0; i < 3; i++) {
     for (int j = 1; j < 5; j++) {
-      pastDistVals[0][j-1] = pastDistVals[0][j];
+      pastDistVals[i][j-1] = pastDistVals[i][j];
     }
   }
   // add new value
-  pastDisstVals[0][4] = distR;
-  pastDisstVals[1][4] = distM;
-  pastDisstVals[2][4] = distL;
+  pastDistVals[0][4] = distR;
+  pastDistVals[1][4] = distM;
+  pastDistVals[2][4] = distL;
   // average out with past 5 vals and update normalizedVals
   for (int i = 0; i < 3; i++) { // i might make this more resistant to outliers
-    int sum = 0;
+    double sum = 0;
     for (int j = 0; j < 5; j++) { // get sum of past vals
       sum += pastDistVals[i][j];
     }
@@ -298,7 +298,7 @@ int motorSpeed(double percentage) {
 
 // Convert MM to CM
 double measurementCentimeters(int millimeter){
-  return (millimeter)/10;
+  return (millimeter)/10.0;
 }
 
 // Debugger String
