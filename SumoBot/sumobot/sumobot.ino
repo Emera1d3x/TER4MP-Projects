@@ -45,9 +45,14 @@ Adafruit_VL53L0X distSensorL = Adafruit_VL53L0X();
 #define LDR_DETECT_THRESHOLD 110 // 
 
 // Search 
+  // Abandon spin search after time for a vertex search, prevents statemates 
 bool spinMode = false;
 bool vertexMode = false;
 unsigned long spinStartTime = 0;
+
+// Normalized Values
+  // Perhaps smoothens dist values, reduces jitters, and mitigate errors 
+double normalizedVals[3] = {0.0, 0.0, 0.0};
 
 // Setup Dist Sensors
 void setDistSensors(){
@@ -127,6 +132,11 @@ void loop() {
   double distR = measurementCentimeters(measureDISTR.RangeMilliMeter);
   double distL = measurementCentimeters(measureDISTL.RangeMilliMeter);
   double distM = measureUltraSonic();
+  // Normalizer (might remove / adjust if it doesn't really work)
+  updateNormalizer(distR, distM, distL);
+  distR = normalizedVals[0];
+  distM = normalizedVals[1];
+  distL  = normalizedVals[2];
 
   // Read QRE sensors 
   double whiteValR = analogRead(LDR_R);
@@ -169,6 +179,31 @@ double measureUltraSonic(){
   double duration = pulseIn(ULTRA_ECHO, HIGH, 30000);
   double distance = duration*0.034/2;
   return distance;
+}
+
+// I might remove this
+// Normalizer
+double pastDistVals[3][5] = {{0.0, 0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 0.0}};
+  // Sometimes the dist sensors give faulty values. In order to mitigate the sudden change, normalize values to past ~10 milliseconds (?)
+void updateNormalizer (double distR, distM, distL) {
+  // shift old vals
+  for (int i = 0; i < 3; i++) {
+    for (int j = 1; j < 5; j++) {
+      pastDistVals[0][j-1] = pastDistVals[0][j];
+    }
+  }
+  // add new value
+  pastDisstVals[0][4] = distR;
+  pastDisstVals[1][4] = distM;
+  pastDisstVals[2][4] = distL;
+  // average out with past 5 vals and update normalizedVals
+  for (int i = 0; i < 3; i++) { // i might make this more resistant to outliers
+    int sum = 0;
+    for (int j = 0; j < 5; j++) { // get sum of past vals
+      sum += pastDistVals[i][j];
+    }
+    normalizedVals[i] = (sum)/5;
+  }
 }
 
 // Move Motors
