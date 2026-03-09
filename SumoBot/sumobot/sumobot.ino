@@ -1,13 +1,11 @@
-// https://github.com/adafruit/Adafruit_VL53L0X/blob/master/examples/vl53l0x_dual/vl53l0x_dual.ino
 // Sehan M., Elya K., Vraj P.
 // TERM - Mr. Wong
-// 2026-02-XX
+// 2026-03-09
 // Sumo Bot
 
 // Imports
 #include <Wire.h>
 #include <time.h>
-//#include "lib/Adafruit_VL53L0X/src/Adafruit_VL53L0X.h"
 #include <Adafruit_VL53L0X.h>
 
 // Motors
@@ -21,37 +19,39 @@
 #define L_MOTOR_P2 10 // BIN2
 
 // Ground Sensors (QRE1113 IR Sensor)
-#define LDR_R A0
-#define LDR_L A1
+  // Right Ground Sensor
+#define IR_R A0
+  // Left Ground Sensor
+#define IR_L A1
 
 // Distance Sensors (VL53L0X Dual Sensor & Ultrasonic Sensor)
-  // Dist Sensor Objects
+  // Dist Sensor (VL53L0X) Objects
 Adafruit_VL53L0X distSensorR = Adafruit_VL53L0X();
 Adafruit_VL53L0X distSensorL = Adafruit_VL53L0X();
   // SHT pins
 #define DISTR_SHT 2
 #define DISTL_SHT 3
-  // Memory Allocation
+  // Memory Allocation - required for multi-sensor setup
 #define DISTR_ADDRESS 0x30
 #define DISTL_ADDRESS 0x31
-  // Distance Sensor (The other one)
+  // Ultrasonic sensor pins
 #define ULTRA_TRIG 11
 #define ULTRA_ECHO 12
 
-// Additional Constants
-#define SPIN_SPEED 1 // Spin Speed Percentage
-#define DIST_DETECT_THRESHOLD 18 // 
-#define DIST_DETECT_THRESHOLD_MIDDLE 15 // 
-#define LDR_DETECT_THRESHOLD 110 // 
+// Constants, for calibration
+const SPIN_SPEED 1 // Spin Speed Percentage
+const DIST_DETECT_THRESHOLD 18 // Recognize object when values read <
+const DIST_DETECT_THRESHOLD_MIDDLE 15 // Recognize object when values read <
+const IR_DETECT_THRESHOLD 110 // Recognize white when values read <
 
-// Search 
-  // Abandon spin search after time for a vertex search, prevents statemates 
+// Search variables
+  // Abandon basic spin search after some time for a vertex search, prevents stalemates 
 bool spinMode = false;
 bool vertexMode = false;
 unsigned long spinStartTime = 0;
 
 // Normalized Values
-  // Perhaps smoothens dist values, reduces jitters, and mitigate errors 
+  // Smoothens dist values, reduces jitters, and mitigates random uncontrollable reading errors 
 double normalizedVals[3] = {0.0, 0.0, 0.0};
 
 // Setup Dist Sensors
@@ -62,7 +62,7 @@ void setDistSensors(){
 
 // Setup (DIST) VL52L0X Sensors
   // Weird method required when setting multiple VL52L0X
-  // Start with both off, restart one sensor at one memory address, and restart the other at another memoory address via XSHUT pin
+  // Start with both sensors off, then restart one sensor and allocate to one memory address, then restart the other at another memoory address via XSHUT pins
 void setVL52L0X() {
   pinMode(DISTR_SHT, OUTPUT);
   pinMode(DISTL_SHT, OUTPUT);
@@ -89,15 +89,14 @@ void setUltraSonic(){
   pinMode(ULTRA_ECHO, INPUT);
 }
 
-// Setup (LDR) QRE
-  // Actually not necessary
+// Setup (IR for sensing border) QRE
 void setQRE(){
-  pinMode(LDR_R, INPUT);
-  pinMode(LDR_L, INPUT);
+  pinMode(IR_R, INPUT);
+  pinMode(IR_L, INPUT);
 }
 
 // Setup Motors
-  // Regular and PWM for custom speed
+  // Regular and PWM pins for custom speed
 void setMotors(){
   pinMode(R_MOTOR_P1, OUTPUT);
   pinMode(R_MOTOR_P2, OUTPUT);
@@ -111,17 +110,18 @@ void setMotors(){
   // Called once as initialization
 void setup() {
   Serial.begin(9600);
+  // Setup components
   setDistSensors();
   setMotors();
   setQRE();
   Serial.println("Setup Finished");
   delay(1);
-  motors(motorSpeed(1), motorSpeed(1));
+  motors(motorSpeed(1), motorSpeed(1)); // Move forward away from opponent
   delay(500);
 }
 
 // Loop
-  // Constantly called around 16 MHz but slowed due to delays used
+  // Constantly called method, around 16 MHz (?) but slowed due to delays used
 void loop() {
   // Read VL53L0X sensors for current information
   VL53L0X_RangingMeasurementData_t measureDISTR;
@@ -132,44 +132,44 @@ void loop() {
   double distR = measurementCentimeters(measureDISTR.RangeMilliMeter);
   double distL = measurementCentimeters(measureDISTL.RangeMilliMeter);
   double distM = measureUltraSonic();
-  // Normalizer (might remove / adjust if it doesn't really work)
+  // Normalize dist values to be smoother
   updateNormalizer(distR, distM, distL);
   distR = normalizedVals[0];
   distM = normalizedVals[1];
-  distL  = normalizedVals[2];
+  distL = normalizedVals[2];
 
   // Read QRE sensors 
-  double whiteValR = analogRead(LDR_R);
-  double whiteValL = analogRead(LDR_L);
-  // Translate to detecting tape or not.
-  bool whiteR = (LDR_DETECT_THRESHOLD > whiteValR);
-  bool whiteL = (LDR_DETECT_THRESHOLD > whiteValL);
+  double whiteValR = analogRead(IR_R);
+  double whiteValL = analogRead(IR_L);
+  // Translate to detecting border or not.
+  bool whiteR = (IR_DETECT_THRESHOLD > whiteValR);
+  bool whiteL = (IR_DETECT_THRESHOLD > whiteValL);
 
   debugger(distL, distM, distR, whiteValL, whiteValR);
 
-  // Control
+  // Controls
   if ((whiteR || whiteL) && !vertexMode) { // Detects edge, urgent escape
     escape(whiteR, whiteL);Serial.println("  ESCAPING");
   } else if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){ // Can't find opponent 
     if (!vertexMode) { // Spin Search
       spinSearch(); Serial.println("SPIN SEARCH");
-    } else { // Vertex Search
+    } else { // Vertex Search, happens after some time
       vertexSearch((whiteL || whiteR)); Serial.println("Vertex Search");
     }
   } else { // Found opponent
     spinMode = 0; vertexMode = 0;
     if (distR+12 < distL) { // opponent to left
-      motors(motorSpeed(0.5), motorSpeed(1)); Serial.println("  LEFT");
+      motors(motorSpeed(0.5), motorSpeed(1)); Serial.println("  LEFT"); // Adjust lefet
     } else if (distR > distL+12) { // opponent to right
-      motors(motorSpeed(1), motorSpeed(0.5)); Serial.println("  RIGHT");
+      motors(motorSpeed(1), motorSpeed(0.5)); Serial.println("  RIGHT"); // Adjust right
     } else { // opponent in front
-      motors(motorSpeed(1), motorSpeed(1)); Serial.println("  FWD");
+      motors(motorSpeed(1), motorSpeed(1)); Serial.println("  FWD"); // Move fwd (attack)
     }
   }
 }
 
 // Measure Ultrasonic sensor (Middle)
-  // Send out wave and get when it comes back or not
+  // Sends out wave and gets information on when it comes back if it does
 double measureUltraSonic(){
   digitalWrite(ULTRA_TRIG, LOW);
   delayMicroseconds(2);
@@ -181,32 +181,33 @@ double measureUltraSonic(){
   return distance;
 }
 
-// I might remove this
 // Normalizer
+  // Smoothen values
 double pastDistVals[3][5] = {{0.0, 0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 0.0}};
   // Sometimes the dist sensors give faulty values. In order to mitigate the sudden change, normalize values to past ~10 milliseconds (?)
 void updateNormalizer (double distR, double distM, double distL) {
-  // shift old vals
+  // Shift old values
   for (int i = 0; i < 3; i++) {
     for (int j = 1; j < 5; j++) {
       pastDistVals[i][j-1] = pastDistVals[i][j];
     }
   }
-  // add new value
+  // Add new values
   pastDistVals[0][4] = distR;
   pastDistVals[1][4] = distM;
   pastDistVals[2][4] = distL;
-  // average out with past 5 vals and update normalizedVals
-  for (int i = 0; i < 3; i++) { // i might make this more resistant to outliers
+  // Average out with past 5 vals and update normalizedVals
+  for (int i = 0; i < 3; i++) {
     double sum = 0;
-    for (int j = 0; j < 5; j++) { // get sum of past vals
+    for (int j = 0; j < 5; j++) { // Get sum of past vals
       sum += pastDistVals[i][j];
     }
-    normalizedVals[i] = (sum)/5;
+    normalizedVals[i] = (sum)/5; // Put averaged value into normalizedVals[]
   }
 }
 
 // Move Motors
+  // Move motors right and left. Positive is forward and negative is backwards.
 void motors(int right_speed, int left_speed) {
   if (right_speed > 0) {
     digitalWrite(R_MOTOR_P1, HIGH);
@@ -237,15 +238,15 @@ void stopMotors() {
   motors(0, 0);
 }
 
-// Spin Search for opponent bot
-  // Spin in a circle
+// Spin Search
+  // Spin in place to find opponent
 void spinSearch() {
   if (!spinMode) {
     spinMode = true;
     spinStartTime = millis();
-  } else if (millis() - spinStartTime > 3000) { // span for too long
+  } else if (millis() - spinStartTime > 3000) { // If span for too long, abandon spin search and do vertex search process
     spinMode = false;
-    vertexMode = true;
+    vertexMode = true; 
   }
   motors(motorSpeed(-SPIN_SPEED), motorSpeed(SPIN_SPEED));
 }
@@ -263,13 +264,13 @@ void vertexSearch(bool vertex) {
   unsigned long now = millis();
 
   if (state == 0) {  
-    // Move forward until we hit edge
+    // Move forward until detects edge
     motors(motorSpeed(0.7), motorSpeed(0.7));
-    if (vertex) { // edge detected
+    if (vertex) { // Edge detected
       state = 1;
       stateStart = now;
     }
-  } else if (state == 1) {  
+  } else if (state == 1) {
     // Reverse slightly
     motors(motorSpeed(-0.7), motorSpeed(-0.7));
     if (now - stateStart >= reverseTime) {
@@ -277,7 +278,7 @@ void vertexSearch(bool vertex) {
       stateStart = now;
     }
   } else if (state == 2) {  
-    // Rotate in place
+    // Rotate in place for some time to point itself to next edge
     motors(motorSpeed(-0.7), motorSpeed(0.7));
     if (now - stateStart >= rotateTime) {
       state = 0;
@@ -286,12 +287,12 @@ void vertexSearch(bool vertex) {
 }
 
 // Urgent, on tape
-  // Move away from the tape
+  // Move away from the tape (move backwards)
 void escape(bool right, bool left) {
   motors(motorSpeed(-1), motorSpeed(-1));
 }
 
-// Translates percentage to PWM val
+// Translates percentage (1.0 to 0 to -1.0) to PWM val
 int motorSpeed(double percentage) {
   return (int)(percentage*(255));
 }
