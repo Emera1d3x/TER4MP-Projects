@@ -1,3 +1,5 @@
+// Temporary version for broken bot (one of the IR sensors and both of the VL53L0X got cooked)
+
 // Sehan M., Elya K., Vraj P.
 // TERM - Mr. Wong
 // 2026-03-09
@@ -11,12 +13,12 @@
 // Motors
   // Right Motor
 #define R_MOTOR_PWM 5 // PWMA
-#define R_MOTOR_P1 7 // AIN1
-#define R_MOTOR_P2 8 // AIN2
+#define R_MOTOR_P1 8 // AIN1
+#define R_MOTOR_P2 7 // AIN2
   // Left Motor
 #define L_MOTOR_PWM 6 // PWMB
-#define L_MOTOR_P1 9 // BIN1
-#define L_MOTOR_P2 10 // BIN2
+#define L_MOTOR_P1 10 // BIN1
+#define L_MOTOR_P2 9 // BIN2
 
 // Ground Sensors (QRE1113 IR Sensor)
   // Right Ground Sensor
@@ -26,8 +28,8 @@
 
 // Distance Sensors (VL53L0X Dual Sensor & Ultrasonic Sensor)
   // Dist Sensor (VL53L0X) Objects
-Adafruit_VL53L0X distSensorR = Adafruit_VL53L0X();
-Adafruit_VL53L0X distSensorL = Adafruit_VL53L0X();
+//Adafruit_VL53L0X distSensorR = Adafruit_VL53L0X();
+//Adafruit_VL53L0X distSensorL = Adafruit_VL53L0X();
   // SHT pins
 #define DISTR_SHT 2
 #define DISTL_SHT 3
@@ -39,10 +41,10 @@ Adafruit_VL53L0X distSensorL = Adafruit_VL53L0X();
 #define ULTRA_ECHO 12
 
 // Constants, for calibration
-const SPIN_SPEED 1 // Spin Speed Percentage
-const DIST_DETECT_THRESHOLD 18 // Recognize object when values read <
-const DIST_DETECT_THRESHOLD_MIDDLE 15 // Recognize object when values read <
-const IR_DETECT_THRESHOLD 110 // Recognize white when values read <
+#define SPIN_SPEED 0.4 // Spin Speed Percentage
+#define DIST_DETECT_THRESHOLD 18 // Recognize object when values read <
+#define DIST_DETECT_THRESHOLD_MIDDLE 35 // Recognize object when values read <
+#define IR_DETECT_THRESHOLD 110 // Recognize white when values read <
 
 // Search variables
   // Abandon basic spin search after some time for a vertex search, prevents stalemates 
@@ -56,14 +58,14 @@ double normalizedVals[3] = {0.0, 0.0, 0.0};
 
 // Setup Dist Sensors
 void setDistSensors(){
-  setVL52L0X();
+  //setVL52L0X();
   setUltraSonic();
 }
 
 // Setup (DIST) VL52L0X Sensors
   // Weird method required when setting multiple VL52L0X
   // Start with both sensors off, then restart one sensor and allocate to one memory address, then restart the other at another memoory address via XSHUT pins
-void setVL52L0X() {
+/*void setVL52L0X() {
   pinMode(DISTR_SHT, OUTPUT);
   pinMode(DISTL_SHT, OUTPUT);
   // Off
@@ -79,7 +81,7 @@ void setVL52L0X() {
   delay(10);
   distSensorL.begin(DISTL_ADDRESS);
   Serial.println("VL52L0X Set");
-}
+}*/
 
 // Setup (DIST) UltraSonic Sensor
   // Trig Pin sends beam
@@ -116,22 +118,24 @@ void setup() {
   setQRE();
   Serial.println("Setup Finished");
   delay(1);
-  motors(motorSpeed(1), motorSpeed(1)); // Move forward away from opponent
-  delay(500);
+  //motors(motorSpeed(1), motorSpeed(1)); // Move forward away from opponent for some time
+  //delay(500000);
 }
 
 // Loop
   // Constantly called method, around 16 MHz (?) but slowed due to delays used
 void loop() {
   // Read VL53L0X sensors for current information
-  VL53L0X_RangingMeasurementData_t measureDISTR;
+  /*VL53L0X_RangingMeasurementData_t measureDISTR;
   VL53L0X_RangingMeasurementData_t measureDISTL;
   distSensorR.rangingTest(&measureDISTR, false);
   distSensorL.rangingTest(&measureDISTL, false);
   // Get distances for all sensors
   double distR = measurementCentimeters(measureDISTR.RangeMilliMeter);
-  double distL = measurementCentimeters(measureDISTL.RangeMilliMeter);
+  double distL = measurementCentimeters(measureDISTL.RangeMilliMeter);*/
   double distM = measureUltraSonic();
+  double distR = 0.0;
+  double distL = 0.0;
   // Normalize dist values to be smoother
   updateNormalizer(distR, distM, distL);
   distR = normalizedVals[0];
@@ -144,10 +148,15 @@ void loop() {
   // Translate to detecting border or not.
   bool whiteR = (IR_DETECT_THRESHOLD > whiteValR);
   bool whiteL = (IR_DETECT_THRESHOLD > whiteValL);
-
+  whiteL = false;
+  if (distM == 0.0){
+    distM = 100.0;
+  }
   debugger(distL, distM, distR, whiteValL, whiteValR);
 
+  
   // Controls
+  /*
   if ((whiteR || whiteL) && !vertexMode) { // Detects edge, urgent escape
     escape(whiteR, whiteL);Serial.println("  ESCAPING");
   } else if (distR > DIST_DETECT_THRESHOLD && distL > DIST_DETECT_THRESHOLD && distM > DIST_DETECT_THRESHOLD_MIDDLE){ // Can't find opponent 
@@ -165,6 +174,19 @@ void loop() {
     } else { // opponent in front
       motors(motorSpeed(1), motorSpeed(1)); Serial.println("  FWD"); // Move fwd (attack)
     }
+  }
+  */
+  if ((whiteR || whiteL) && !vertexMode) { // Detects edge, urgent escape
+    escape(whiteR, whiteL);Serial.println("  ESCAPING");
+  } else if (distM > DIST_DETECT_THRESHOLD_MIDDLE){ // Can't find opponent 
+    if (!vertexMode) { // Spin Search
+      spinSearch(); Serial.println(" SPIN SEARCH");
+    } else { // Vertex Search, happens after some time
+      vertexSearch((whiteL || whiteR)); Serial.println(" Vertex Search");
+    }
+  } else { // Found opponent
+    spinMode = 0; vertexMode = 0;
+    motors(motorSpeed(1), motorSpeed(1)); Serial.println("  FWD"); // Move fwd (attack)
   }
 }
 
@@ -265,14 +287,14 @@ void vertexSearch(bool vertex) {
 
   if (state == 0) {  
     // Move forward until detects edge
-    motors(motorSpeed(0.7), motorSpeed(0.7));
+    motors(motorSpeed(1), motorSpeed(1));
     if (vertex) { // Edge detected
       state = 1;
       stateStart = now;
     }
   } else if (state == 1) {
     // Reverse slightly
-    motors(motorSpeed(-0.7), motorSpeed(-0.7));
+    motors(motorSpeed(-1), motorSpeed(-1));
     if (now - stateStart >= reverseTime) {
       state = 2;
       stateStart = now;
