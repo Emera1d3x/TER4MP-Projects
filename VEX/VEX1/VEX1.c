@@ -8,7 +8,7 @@ task main()
 {
     while (true) {
         int forward = vexRT[Ch3]; // left joystick Y
-				int turn    = vexRT[Ch1]*(0.8); // right joystick X
+				int turn = vexRT[Ch1]*(0.8); // right joystick X
         motor[TR] = forward-turn;
         motor[TL] = -forward-turn;
         motor[BR] = forward-turn;
